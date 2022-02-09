@@ -2,8 +2,12 @@ package EventLogger
 
 import (
     "fmt"
+    "github.com/gorilla/mux"
+    _ "github.com/gorilla/mux"
     "log"
+    "net/http"
     "os"
+    "strconv"
     "time"
 )
 
@@ -26,6 +30,9 @@ var baseLogDirectory string
 // Format string: [TIME STAMP]-[LEVEL] MESSAGE
 const baseLogStr = "[%v]-[%s] %s"
 
+// Port number
+const portNumber = 45456
+
 func init() {
     log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Event Logger starting..."))
 
@@ -36,5 +43,19 @@ func init() {
     baseLogDirectory = fmt.Sprintf("%s/%s/", baseDirectory, "logs")
     log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Log storage directory set to "+baseLogDirectory))
 
+    // Start serving requests.
+    handleRequests()
+
     log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Event Logger started"))
+}
+
+func handleRequests() {
+    router := mux.NewRouter().StrictSlash(true)
+    router.HandleFunc("/", homePage)
+    log.Fatal(http.ListenAndServe(":"+strconv.Itoa(portNumber), router))
+}
+
+func homePage(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Event Logger is Active")
+    log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Visit to homepage"))
 }
