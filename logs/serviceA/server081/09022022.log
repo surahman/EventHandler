@@ -1,0 +1,3 @@
+09022022, 000102, serviceA, server081, INFO, Account Created, New user Bilbo Baggins
+09022022, 103945, serviceA, server081, WARN, Accessing Record, User Bilbo Baggins accessed database
+09022022, 221219, serviceA, server081, SEVERE, Server Fault, Server rebooted
