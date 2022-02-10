@@ -108,30 +108,10 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 // View Event Logger server logs.
 func serverLog(w http.ResponseWriter, r *http.Request) {
-    logger("WARN", "Served request for server logs")
-
     // Open server log file
-    fd, err := os.Open(serverLogFile)
-    if err != nil {
-        error := fmt.Sprintf("No log files found for the Event Logger: %v", err)
-        fmt.Fprintf(w, "ERROR:"+error)
-        logger("SEVERE", error)
-        return
-    }
-    defer fd.Close()
-
-    // Write log file to responder.
-    scanner := bufio.NewScanner(fd)
-    for scanner.Scan() {
-        fmt.Fprintln(w, scanner.Text())
-    }
-
-    // Check for error from the scanner.
-    if err := scanner.Err(); err != nil {
-        error := fmt.Sprintf("No log files found for the Event Logger: %v", err)
-        fmt.Fprintf(w, "ERROR:"+error)
-        logger("SEVERE", error)
-        return
+    // Attempt to write log file to requester
+    if success := logFileWriter(&w, serverLogFile); success {
+        logger("WARN", fmt.Sprintf("Served request for server logs: %s", serverLogFile))
     }
 }
 
