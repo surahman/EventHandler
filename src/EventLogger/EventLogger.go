@@ -11,7 +11,6 @@ import (
     "net/http"
     "os"
     "path/filepath"
-    "strconv"
     "time"
 )
 
@@ -46,7 +45,7 @@ var baseLogDirectory string
 const baseLogStr = "[%v]-[%s] %s"
 
 // Port number
-const portNumber = 45456
+var portNumber string
 
 // Server log file location
 var serverLogFile string
@@ -70,6 +69,12 @@ func logger(level, msg string) {
 
 // Initialize the Event Logger.
 func init() {
+    // Attempt to acquire port from environment vars.
+    ok := false
+    portNumber, ok = os.LookupEnv("PORT")
+    if !ok {
+        portNumber = "45456"
+    }
     // Configure log directory and server log file.
     baseDirectory, err := os.Getwd()
     if err != nil {
@@ -81,6 +86,7 @@ func init() {
         panic(err)
     }
     logger("INFO", "Event Server Starting...")
+    logger("INFO", "Event Server listening on port "+portNumber)
     logger("INFO", "Log storage directory set to "+baseLogDirectory)
     logger("INFO", "Server logs located at: "+serverLogFile)
 
@@ -97,7 +103,7 @@ func handleRequests() {
     router.HandleFunc("/logs", serverLog).Methods("GET")
     router.HandleFunc("/append", appendEvent).Methods("POST")
     router.HandleFunc("/logs/{service_name}/{server_id}/{date}", retrieveLog).Methods("GET")
-    log.Fatal(http.ListenAndServe(":"+strconv.Itoa(portNumber), router))
+    log.Fatal(http.ListenAndServe(":"+portNumber, router))
 }
 
 // Default home page
