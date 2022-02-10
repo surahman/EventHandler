@@ -96,6 +96,7 @@ func handleRequests() {
     router.HandleFunc("/", homePage).Methods("GET")
     router.HandleFunc("/logs", serverLog).Methods("GET")
     router.HandleFunc("/append", appendEvent).Methods("POST")
+    router.HandleFunc("/logs/{service_name}/{server_id}/{date}", retrieveLog).Methods("GET")
     log.Fatal(http.ListenAndServe(":"+strconv.Itoa(portNumber), router))
 }
 
@@ -107,7 +108,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 // View Event Logger server logs.
 func serverLog(w http.ResponseWriter, r *http.Request) {
-    logger("WARN", "Request for server logs")
+    logger("WARN", "Served request for server logs")
 
     // Open server log file
     fd, err := os.Open(serverLogFile)
@@ -145,7 +146,7 @@ func appendEvent(w http.ResponseWriter, r *http.Request) {
 
     // Generate path for log file
     path := fmt.Sprintf("%s/%s/%s/", baseLogDirectory, event.ServiceName, event.ServerID)
-    fileName := fmt.Sprintf("%s.log", event.Date)
+    filePath := fmt.Sprintf("%s%s.log", path, event.Date)
 
     // ECHO BACK
     //json.NewEncoder(w).Encode(event)
@@ -159,7 +160,7 @@ func appendEvent(w http.ResponseWriter, r *http.Request) {
     }
 
     // Open log file and write entry.
-    fd, err := os.OpenFile(path+fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    fd, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
     if err != nil {
         error := fmt.Sprintf("Unable to entry to log: %v", err)
         fmt.Fprintf(w, "ERROR:"+error)
@@ -171,4 +172,52 @@ func appendEvent(w http.ResponseWriter, r *http.Request) {
     if _, err = fd.WriteString(event.String()); err != nil {
         panic(err)
     }
+
+    logger("INFO", fmt.Sprintf("Appended new event to log: %s", filePath))
+}
+
+// Append an event to a log file.
+func retrieveLog(w http.ResponseWriter, r *http.Request) {
+    urlFields := mux.Vars(r)
+    serviceName := urlFields["service_name"]
+    serverID := urlFields["server_id"]
+    date := urlFields["date"]
+
+    // TODO: validate fields retrieved from URL.
+
+    filePath := fmt.Sprintf("%s%s/%s/%s.log", baseLogDirectory, serviceName, serverID, date)
+
+    // Attempt to write log file to requester
+    if success := logFileWriter(&w, filePath); success {
+        logger("INFO", fmt.Sprintf("Served event log: %s", filePath))
+    }
+}
+
+// Loads and writes out a log file for an HTTP request.
+func logFileWriter(w *http.ResponseWriter, logFileName string) bool {
+    // Open server log file
+    fd, err := os.Open(logFileName)
+    if err != nil {
+        err := fmt.Sprintf("No log files found: %v", err)
+        fmt.Fprintf(*w, "ERROR:"+err)
+        logger("SEVERE", err)
+        return false
+    }
+    defer fd.Close()
+
+    // Write log file to responder.
+    scanner := bufio.NewScanner(fd)
+    for scanner.Scan() {
+        fmt.Fprintln(*w, scanner.Text())
+    }
+
+    // Check for error from the scanner.
+    if err := scanner.Err(); err != nil {
+        err := fmt.Sprintf("No log files found: %v", err)
+        fmt.Fprintf(*w, "ERROR:"+err)
+        logger("SEVERE", err)
+        return false
+    }
+
+    return true
 }
