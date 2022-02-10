@@ -1,12 +1,14 @@
 package EventLogger
 
 import (
+    "bufio"
     "fmt"
     "github.com/gorilla/mux"
     _ "github.com/gorilla/mux"
     "log"
     "net/http"
     "os"
+    "path/filepath"
     "strconv"
     "time"
 )
@@ -33,29 +35,87 @@ const baseLogStr = "[%v]-[%s] %s"
 // Port number
 const portNumber = 45456
 
-func init() {
-    log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Event Logger starting..."))
+// Server log file location
+var serverLogFile string
 
+// Logger
+func logger(level, msg string) {
+    logMessage := fmt.Sprintf(baseLogStr, time.Now(), level, msg)
+
+    log.Print(logMessage)
+
+    fd, err := os.OpenFile(serverLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        panic(err)
+    }
+    defer fd.Close()
+
+    if _, err = fd.WriteString(logMessage + "\n"); err != nil {
+        panic(err)
+    }
+}
+
+// Initialize the Event Logger.
+func init() {
+    // Configure log directory and server log file.
     baseDirectory, err := os.Getwd()
     if err != nil {
         panic(err)
     }
     baseLogDirectory = fmt.Sprintf("%s/%s/", baseDirectory, "logs")
-    log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Log storage directory set to "+baseLogDirectory))
+    serverLogFile = filepath.Join(baseLogDirectory, filepath.Base("server_log.log"))
+    if err = os.MkdirAll(baseLogDirectory, os.ModePerm); err != nil {
+        panic(err)
+    }
+    logger("INFO", "Event Server Starting...")
+    logger("INFO", "Log storage directory set to "+baseLogDirectory)
+    logger("INFO", "Server logs located at: "+serverLogFile)
 
     // Start serving requests.
     handleRequests()
 
-    log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Event Logger started"))
+    logger("INFO", "Event Logger started")
 }
 
+// Gorilla Mux connection multiplexer.
 func handleRequests() {
     router := mux.NewRouter().StrictSlash(true)
     router.HandleFunc("/", homePage)
+    router.HandleFunc("/logs", serverLog).Methods("get")
     log.Fatal(http.ListenAndServe(":"+strconv.Itoa(portNumber), router))
 }
 
+// Default home page
 func homePage(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "Event Logger is Active")
-    log.Print(fmt.Sprintf(baseLogStr, time.Now(), "INFO", "Visit to homepage"))
+    logger("INFO", "Homepage visitor")
+}
+
+// View Event Logger server logs.
+func serverLog(w http.ResponseWriter, r *http.Request) {
+    logger("WARN", "Request for server logs")
+
+    // Open server log file
+    fd, err := os.Open(serverLogFile)
+    if err != nil {
+        error := fmt.Sprintf("No log files found for the Event Logger: %v", err)
+        fmt.Fprintf(w, "ERROR:"+error)
+        logger("SEVERE", error)
+        return
+    }
+    defer fd.Close()
+
+    // Write log file to responder.
+    scanner := bufio.NewScanner(fd)
+    for scanner.Scan() {
+        fmt.Fprintln(w, scanner.Text())
+    }
+
+    // Check for error from the scanner.
+    if err := scanner.Err(); err != nil {
+        error := fmt.Sprintf("No log files found for the Event Logger: %v", err)
+        fmt.Fprintf(w, "ERROR:"+error)
+        logger("SEVERE", error)
+        return
+    }
 }
