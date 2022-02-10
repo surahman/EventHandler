@@ -1,14 +1,22 @@
-# REST Event Logger POC
+# REST Event Logger PoC
 
 I am working on this project intermittently. I have set myself a time limit of ~3hrs which includes the time to acquire and adapt to Golang. This is an extremely quick Proof of Concept for demonstration purposes only. It shall additionally serve as a refresher to Golang.
 
 Gorilla MUX library is used for concurrent multiplexed HTTP request handling.
 
+[Live demo](https://rest-event-logger.herokuapp.com/)
+
+*Please note that Heroku wipes all stored files every hour so updates to logs might vanish at the top of the hour.*
+
+Local host testing will attempt to read the environment variable `PORT`, and if not found will set the listening port to `45456`.
+
+E.g.: `http://localhost:45456`
+
 
 ## TODO's and Shortcuts
 
 * **Git Flow**: No development branching for features. This is not good in a production environment.
-* **Test suite**: Since this is not meant for production and is a very quick exercise I have not had the time to build a test suite. This is a poor practice and does not fly in production environments.
+* **Test Suite**: Since this is not meant for production and is a very quick exercise I have not had the time to build a test suite. This is a poor practice and does not fly in production environments.
 * **Code Coverage**: Time constrained.
 * **Benchmarking**: Time constrained.
 * **Profiling**: Time constrained.
@@ -37,7 +45,7 @@ The design outlined below is not stateless which will lead to high availability 
 ### Storage
 Events are tail appended to files stored on disk in the file structure `service_name/server_id/date.log`.
 
-Using a file on a disk that is tail appended to will improve memory consumption but result in reduced performance due to writes to disk. Ideally, writes would be chunked in blocks and tail-appended to files on disk. Tail-appending in blocks also improves concurrency as we will not require implicitly locking of the file to append. This is a similar scheme to that which is used in Apache Kafka.
+Using a file on a disk that is tail appended too will improve memory consumption but result in reduced performance due to writes to disk. Ideally, writes would be chunked in blocks and tail-appended to files on disk. Tail-appending in blocks also improves concurrency as we will not require implicitly locking of the file to append. This is a similar scheme to that which is used in Apache Kafka.
 
 The file structure above is efficient for ETL/ELT jobs (Spark etc.) when moving the logs to a data warehouse (OLAP) for analysis. Loglines are comma seperated and contain the service name, server name, and date despite it being contained in the folder structure; this is for big data jobs.
 
@@ -46,11 +54,11 @@ The file structure above is efficient for ETL/ELT jobs (Spark etc.) when moving 
 You may view the activity of the Event Logger by visiting `/logs`
 
 ##### Example
-`http://localhost:45456/logs`
+`server_address/logs`
 
 
 ### Submission
-Events are submitted to the server via the `body` of an `HTTP: put` with the details of the event structured in `JSON`. The url would be `server_address/add_event/`.
+Events are submitted to the server via the `body` of an `HTTP: put` with the details of the event structured in `JSON`. The url would be `server_address/append/`.
 
 ##### Examples
 ```bash
@@ -69,4 +77,4 @@ curl -X POST http://localhost:45456/append \
 Events are retrieved via an `HTTP: get` on the url structure `server_address/service_name/server_id/date/`. This will return all events on the specific date for a specific service's server. In a production system the log would be read and written back to the client in chunks as they can get very large.
 
 ##### Example
-`http://localhost:45456/logs/serviceA/server001/19092022`
+`server_address/logs/serviceA/server001/19092022`
