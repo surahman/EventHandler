@@ -1,6 +1,6 @@
 # REST Event Logger POC
 
-I am working on this project intermittently. I have set myself a time limit of ~3hrs which includes the time to learn and adapt to Golang. This is a very quick Proof of Concept for demonstration purposes only. It shall also serve as a refresher to Golang.
+I am working on this project intermittently. I have set myself a time limit of ~3hrs which includes the time to acquire and adapt to Golang. This is an extremely quick Proof of Concept for demonstration purposes only. It shall additionally serve as a refresher to Golang.
 
 Gorilla MUX library is used for concurrent multiplexed HTTP request handling.
 
@@ -30,12 +30,16 @@ Gorilla MUX library is used for concurrent multiplexed HTTP request handling.
 
 ## Details
 
+### Statelessness
+The design outlined below is not stateless which will lead to high availability and fault-tolerance issues. One solution to this issue is to use a NoSQL database like Cassandra for data storage as this is a write-intensive service. Another solution is to use object stores (Ceph or AWS S3) or NFS as the backing storage. This might require local storage replicated and then written at time intervals to object stores.
+
+
 ### Storage
 Events are tail appended to files stored on disk in the file structure `service_name/server_id/date.log`.
 
-Using a file on disk that is tail appended to will improve memory consumption but result in reduced performance due to writes to disk. Ideally, writes would be chunked in blocks and tail-appended to files on disk. Tail-appending in blocks also improves concurrency as we will not require implicitly locking of the file to append. This is a similar scheme to that which is used in Apache Kafka.
+Using a file on a disk that is tail appended to will improve memory consumption but result in reduced performance due to writes to disk. Ideally, writes would be chunked in blocks and tail-appended to files on disk. Tail-appending in blocks also improves concurrency as we will not require implicitly locking of the file to append. This is a similar scheme to that which is used in Apache Kafka.
 
-The file structure above is efficient for ETL/ELT jobs (Spark etc.) when moving the logs to a data warehouse (OLAP) for analysis. Log lines are comma seperated and contain the service name, server name, and date despite it being contained in the folder structure; this is for big data jobs.
+The file structure above is efficient for ETL/ELT jobs (Spark etc.) when moving the logs to a data warehouse (OLAP) for analysis. Loglines are comma seperated and contain the service name, server name, and date despite it being contained in the folder structure; this is for big data jobs.
 
 
 ### Event Logger Server Logs
