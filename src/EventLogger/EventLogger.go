@@ -2,9 +2,11 @@ package EventLogger
 
 import (
     "bufio"
+    "encoding/json"
     "fmt"
     "github.com/gorilla/mux"
     _ "github.com/gorilla/mux"
+    "io/ioutil"
     "log"
     "net/http"
     "os"
@@ -16,7 +18,7 @@ import (
 /*
  * Data structure for a single event.
  */
-type eventLogger struct {
+type Event struct {
     ServiceName string `json:"service_name"` // Service Name
     ServerID    string `json:"server_id"`    // Server's unique identifier
     Date        string `json:"date"`         // Date of event
@@ -24,6 +26,17 @@ type eventLogger struct {
     Level       string `json:"level"`        // Level of event: Critical, Warn, Info,...
     EventType   string `json:"event_type"`   // Type of event is specific to service
     Description string `json:"description"`  // Details of the event
+}
+
+func (event *Event) String() string {
+    return fmt.Sprintf("%s, %s, %s, %s, %s, %s, %s\n",
+        event.Date,
+        event.Time,
+        event.ServiceName,
+        event.ServerID,
+        event.Level,
+        event.EventType,
+        event.Description)
 }
 
 // baseLogDirectory will be used to locate the directory to read/write log files.
@@ -80,8 +93,9 @@ func init() {
 // Gorilla Mux connection multiplexer.
 func handleRequests() {
     router := mux.NewRouter().StrictSlash(true)
-    router.HandleFunc("/", homePage)
-    router.HandleFunc("/logs", serverLog).Methods("get")
+    router.HandleFunc("/", homePage).Methods("GET")
+    router.HandleFunc("/logs", serverLog).Methods("GET")
+    router.HandleFunc("/append", appendEvent).Methods("POST")
     log.Fatal(http.ListenAndServe(":"+strconv.Itoa(portNumber), router))
 }
 
@@ -117,5 +131,44 @@ func serverLog(w http.ResponseWriter, r *http.Request) {
         fmt.Fprintf(w, "ERROR:"+error)
         logger("SEVERE", error)
         return
+    }
+}
+
+// Append an event to a log file.
+func appendEvent(w http.ResponseWriter, r *http.Request) {
+    // Unmarshall event into Event.
+    reqBody, _ := ioutil.ReadAll(r.Body)
+    var event Event
+    json.Unmarshal(reqBody, &event)
+
+    // TODO: Error check to make sure event fields are fully populated.
+
+    // Generate path for log file
+    path := fmt.Sprintf("%s/%s/%s/", baseLogDirectory, event.ServiceName, event.ServerID)
+    fileName := fmt.Sprintf("%s.log", event.Date)
+
+    // ECHO BACK
+    //json.NewEncoder(w).Encode(event)
+
+    // Create service log directory as required.
+    if err := os.MkdirAll(path, os.ModePerm); err != nil {
+        error := fmt.Sprintf("Unable to create directory for log: %v", err)
+        fmt.Fprintf(w, "ERROR:"+error)
+        logger("SEVERE", error)
+        return
+    }
+
+    // Open log file and write entry.
+    fd, err := os.OpenFile(path+fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        error := fmt.Sprintf("Unable to entry to log: %v", err)
+        fmt.Fprintf(w, "ERROR:"+error)
+        logger("SEVERE", error)
+        return
+    }
+    defer fd.Close()
+
+    if _, err = fd.WriteString(event.String()); err != nil {
+        panic(err)
     }
 }
