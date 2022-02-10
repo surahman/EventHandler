@@ -7,12 +7,15 @@ Gorilla MUX library is used for concurrent multiplexed HTTP request handling.
 
 ## TODO's and Shortcuts
 
+* **Git Flow**: No development branching for features. This is not good in a production environment.
 * **Test suite**: Since this is not meant for production and is a very quick exercise I have not had the time to build a test suite. This is a poor practice and does not fly in production environments.
-* **Code Coverage**
-* **Benchmarking**
-* **Profiling**
+* **Code Coverage**: Time constrained.
+* **Benchmarking**: Time constrained.
+* **Profiling**: Time constrained.
 * **HTTP Codes**: Appropriate HTTP response codes should be sent for errors and success.
 * **Write Chunking**: Log entries should be buffered and then written to disk to improve performance.
+* **Error Handling**: Better and more careful error handling.
+* **Request Validation**: Validate the inbound requests and reject any that are malformed.
 
 
 ## Event Tuple
@@ -32,7 +35,7 @@ Events are tail appended to files stored on disk in the file structure `service_
 
 Using a file on disk that is tail appended to will improve memory consumption but result in reduced performance due to writes to disk. Ideally, writes would be chunked in blocks and tail-appended to files on disk. Tail-appending in blocks also improves concurrency as we will not require implicitly locking of the file to append. This is a similar scheme to that which is used in Apache Kafka.
 
-The file structure above is efficient for ETL/ELT jobs (Spark etc.) when moving the logs to a data warehouse (OLAP) for analysis. 
+The file structure above is efficient for ETL/ELT jobs (Spark etc.) when moving the logs to a data warehouse (OLAP) for analysis. Log lines are comma seperated and contain the service name, server name, and date despite it being contained in the folder structure; this is for big data jobs.
 
 
 ### Event Logger Server Logs
@@ -45,13 +48,18 @@ You may view the activity of the Event Logger by visiting `/logs`
 ### Submission
 Events are submitted to the server via the `body` of an `HTTP: put` with the details of the event structured in `JSON`. The url would be `server_address/add_event/`.
 
-##### Example
+##### Examples
 ```bash
 curl -X POST http://localhost:45456/append \
    -H "Content-Type: application/json" \
    -d '{"service_name": "serviceA", "server_id": "server001", "date": "09022022", "time": "000102", "level": "INFO", "event_type": "Account Created", "description": "New user Bilbo Baggins"}'
 ```
 
+```bash
+curl -X POST http://localhost:45456/append \
+   -H "Content-Type: application/json" \
+   -d '{"service_name": "serviceD", "server_id": "server045", "date": "09022022", "time": "000102", "level": "SEVERE", "event_type": "Hullaballoo", "description": "Some strange stuff happened here."}'
+   ```
 
 ### Retrieval
 Events are retrieved via an `HTTP: get` on the url structure `server_address/service_name/server_id/date/`. This will return all events on the specific date for a specific service's server. In a production system the log would be read and written back to the client in chunks as they can get very large.
